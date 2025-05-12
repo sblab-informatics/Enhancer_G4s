@@ -1,0 +1,105 @@
+default:
+ fragFolder: /scratcha/sblab/melidi01/dataA/Colm/SLX-22210/demult2/
+ normalizeFactor: 1000000
+ qualityCutoff : 0
+ trimLength : 0
+ minAmountReads : 1000
+ readsQuality : 1
+ cores : 1
+ wSize : 21
+ nTop : 2
+ alnStart : TRUE
+ mapUnique : FALSE
+ nonBlind : FALSE
+ wig : TRUE
+ bigwig : TRUE
+ cisplot : TRUE
+ genomePlot : FALSE
+ tsv : FALSE
+ bins : FALSE
+ mismatchMax : 0
+ chr_random : FALSE
+ chr_fix : FALSE
+ chrUn : FALSE
+ chrM : FALSE
+ prefix : chr
+
+ enzymes:
+  -
+    BamHI
+    GGATCC
+  -
+    BfaI
+    CTAG
+  -
+    Csp6I
+    GTAC
+  -
+    DpnII
+    GATC
+  -
+    EcoRI
+    GAATTC
+  -
+    HindIII
+    AAGCTT
+  -
+    MboI
+    GATC
+  -
+    NlaIII
+    CATG
+  -
+    XbaI
+    TCTAGA
+  -
+    DdeI
+    CTTAG
+    CTAAG
+    CTGAG
+    CTCAG
+  -
+    CviQI
+    GTAC
+
+ genomes:
+  -
+    mm9
+    BSgenome.Mmusculus.UCSC.mm9
+  -
+    mm10
+    BSgenome.Mmusculus.UCSC.mm10
+  -
+    hg19
+    BSgenome.Hsapiens.UCSC.hg19
+  -
+    hg38
+    BSgenome.Hsapiens.UCSC.hg38
+
+
+ bowtie2:
+  -
+    mm9
+    path/to/Bowtie2Index/ (for example /mm9/Bowtie2Index/)
+  -
+    mm10
+    /data2/repository/genome/mm10/Bowtie2Index/
+  -
+    hg19
+    /data2/repository/genome/hg19/Bowtie2Index/
+  -
+    hg38
+    /Users/melidi01/reference_genomes/hg38/Bowtie2/
+  -
+    HBA1
+    /Users/melidi01/reference_genomes/hg38/Somas/HBA1/
+
+
+ plot:
+  maxY: 2500
+  plotView: 1000000
+  xaxisUnit: 'Mb'
+  plotType: 'PDF'
+  binSize: 25000
+
+
