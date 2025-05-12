@@ -1,0 +1,166 @@
+#!/bin/bash
+mkdir control
+for fq in *fq.gz
+do
+  sbatch --time 1:00:00 --mem 2G   --wrap "fastqc $fq  -o ./control"
+done
+
+
+
+
+
+for f in *r1.fq.gz
+do
+  sbatch --time 01:00:00  --mem 5G --wrap "zcat $f | split -dl 4000000 - ${f%%fq.gz} --a 3 --additional-suffix=.fastq && zcat ${f/.r1./.r2.} | split -dl 4000000 - ${f/r1.fq.gz/r2.} --a 3 --additional-suffix=.fastq"
+done
+
+
+mkdir trimmed2
+# paired-end cut and tag
+for file in *.r1.*.fastq
+do
+fq1=$file
+fq2=${fq1/r1/r2}
+ls $fq1
+ls $fq2
+echo "----"
+sbatch --time 01:00:00 -o %j.out -e %j.err  --mem 16000 --wrap "cutadapt -q 20  -o trimmed2/${fq1%%.fastq}.trimmed.fq.gz -p trimmed2/${fq2%%.fastq}.trimmed.fq.gz $fq1 $fq2 "
+done
+
+
+mkdir aligned
+g='~/reference_genomes/hg38_ecoliK12/hg38_selected_ecoli_K12.fa'
+w='~/reference_genomes/hg38/hg38_eco.whitelist.sorted.bed'
+  
+#aln with bwa
+for file in *.r1*trimmed.fq.gz 
+  do
+  f1=$file
+  f2=${file/r1/r2}
+  sbatch --time 12:00:00  -p epyc --mem 16G --wrap "bwa mem -M $g $f1 $f2  | samtools view -Sb -F780 -q 10 -L $w - | samtools sort -@ 8 -   > aligned/${f1%%.trimmed.fq.gz}.hg38.sort.bam"
+done
+
+for file in *.r1.00.hg38.sort.bam
+do
+sample=${file%%.r1.00.hg38.sort.bam}
+sbatch --time 01:00:00  --mem 8G --wrap "samtools merge $sample.merged.bam ${file%%.r1.00.hg38.sort.bam}.r1.*.hg38.sort.bam"
+echo "-------"
+done
+
+
+for bam in *merged.bam
+do
+sbatch --time 12:00:00 --mem 8G --wrap "java -Xmx7g -jar /home/simeon01/applications/picard-2.20.3.jar MarkDuplicates INPUT=$bam OUTPUT=${bam%%.bam}.markduplicates.bam REMOVE_DUPLICATES=true  AS=true METRICS_FILE=${bam%%.bam}.markduplicates_metrics.txt | samtools index ${bam%%.bam}.markduplicates.bam"
+done
+
+for bam in *.bam; do sbatch --time 01:00:00 --mem 4G --wrap "samtools index $bam"; done
+
+
+for file in *.bam
+do
+label=${file%%.bam}
+cmd1="samtools sort -n $file > $label.sortName.bam &&\
+  bedtools bamtobed -bedpe -i $label.sortName.bam > $label.sortName.bed"
+echo $cmd1
+sbatch --time 01:00:00  --mem 4G --wrap "$cmd1"
+done
+
+
+for file in *.merged*.bam
+do
+sbatch  --time 01:00:00 --mem 8G  --wrap "bamPEFragmentSize -b $file -hist ${file%%.markduplicates.bam}.png  -bs 1000 --maxFragmentLength 1000"
+
+done
+
+
+# fragment size selection
+genome=~/reference_genomes/hg38/hg38_selected.sorted.genome
+for file in *sortName.bed
+do
+cmd_800="awk '{if (\$1==\$4 && \$6-\$2 < 800) print \$0}' $file > ${file%%.bed}.800.clean.bed && cut -f 1,2,6 ${file%%.bed}.800.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.800.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.800.clean.fragments.bed -g $genome > ${file%%.bed}.800.clean.fragments.bedgraph"
+echo $cmd_800
+cmd_700="awk '{if (\$1==\$4 && \$6-\$2 < 700) print \$0}' $file > ${file%%.bed}.700.clean.bed && cut -f 1,2,6 ${file%%.bed}.700.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.700.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.700.clean.fragments.bed -g $genome > ${file%%.bed}.700.clean.fragments.bedgraph"
+cmd_600="awk '{if (\$1==\$4 && \$6-\$2 < 600) print \$0}' $file > ${file%%.bed}.600.clean.bed && cut -f 1,2,6 ${file%%.bed}.600.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.600.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.600.clean.fragments.bed -g $genome > ${file%%.bed}.600.clean.fragments.bedgraph"
+cmd_500="awk '{if (\$1==\$4 && \$6-\$2 < 500) print \$0}' $file > ${file%%.bed}.500.clean.bed && cut -f 1,2,6 ${file%%.bed}.500.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.500.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.500.clean.fragments.bed -g $genome > ${file%%.bed}.500.clean.fragments.bedgraph"
+cmd_400="awk '{if (\$1==\$4 && \$6-\$2 < 400) print \$0}' $file > ${file%%.bed}.400.clean.bed && cut -f 1,2,6 ${file%%.bed}.400.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.400.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.400.clean.fragments.bed -g $genome > ${file%%.bed}.400.clean.fragments.bedgraph"
+cmd_300="awk '{if (\$1==\$4 && \$6-\$2 < 300) print \$0}' $file > ${file%%.bed}.300.clean.bed && cut -f 1,2,6 ${file%%.bed}.300.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.300.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.300.clean.fragments.bed -g $genome > ${file%%.bed}.300.clean.fragments.bedgraph"
+cmd_250="awk '{if (\$1==\$4 && \$6-\$2 < 250) print \$0}' $file > ${file%%.bed}.250.clean.bed && cut -f 1,2,6 ${file%%.bed}.250.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.250.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.250.clean.fragments.bed -g $genome > ${file%%.bed}.250.clean.fragments.bedgraph"
+cmd_200="awk '{if (\$1==\$4 && \$6-\$2 < 200) print \$0}' $file > ${file%%.bed}.200.clean.bed && cut -f 1,2,6 ${file%%.bed}.200.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.200.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.200.clean.fragments.bed -g $genome > ${file%%.bed}.200.clean.fragments.bedgraph"
+cmd_150="awk '{if (\$1==\$4 && \$6-\$2 < 150) print \$0}' $file > ${file%%.bed}.150.clean.bed && cut -f 1,2,6 ${file%%.bed}.150.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.150.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.150.clean.fragments.bed -g $genome > ${file%%.bed}.150.clean.fragments.bedgraph"
+cmd_120="awk '{if (\$1==\$4 && \$6-\$2 < 120) print \$0}' $file > ${file%%.bed}.120.clean.bed && cut -f 1,2,6 ${file%%.bed}.120.clean.bed | sort -k1,1 -k2,2n -k3,3n > ${file%%.bed}.120.clean.fragments.bed && bedtools genomecov -bg -i ${file%%.bed}.120.clean.fragments.bed -g $genome > ${file%%.bed}.120.clean.fragments.bedgraph"
+
+
+
+
+
+echo " >> =============== ============= << "
+#sbatch --time 02:00:00 --mem 4G --wrap "$cmd_1000"
+sbatch --time 02:00:00 --mem 4G --wrap "$cmd_800"
+#sbatch --time 02:00:00 --mem 4G --wrap "$cmd_700"
+sbatch --time 02:00:00 --mem 4G --wrap "$cmd_600"
+#sbatch --time 02:00:00 --mem 4G --wrap "$cmd_500"
+sbatch --time 02:00:00 --mem 4G --wrap "$cmd_400"
+#sbatch --time 02:00:00 --mem 4G --wrap "$cmd_300"
+#sbatch --time 02:00:00 --mem 4G --wrap "$cmd_250"
+#sbatch --time 02:00:00 --mem 4G --wrap "$cmd_200"
+#sbatch --time 02:00:00 --mem 4G --wrap "$cmd_150"
+sbatch --time 02:00:00 --mem 4G --wrap "$cmd_120"
+echo " >> =============== ============= << "
+
+done
+echo " >> =============== ============= << "
+
+
+
+
+mkdir seacr_no_ctrl_01
+
+for file in *.clean.fragments.bedgraph
+do
+bdg_1000=${file%%clean.fragments.bedgraph}
+cmd_s_1000="~/applications/SEACR_1.3.sh $file 0.01 non stringent seacr_no_ctrl_01/${bdg_1000}.0.01fdr"
+echo $cmd_s_1000
+sbatch --mem 1G --time 01:00:00 --wrap "$cmd_s_1000"
+done
+
+
+#for file in *sortName.bed
+#do
+#bdg_1000=${file%%.bed}.1000.clean.fragments.bedgraph
+#cmd_s_1000="~/applications/SEACR_1.3.sh $bdg_1000 0.01 non relaxed seacr_no_ctrl_01/${bdg_1000%%clean}.rel.0.01fdr"
+#echo $cmd_s_1000
+#sbatch --mem 1G --time 01:00:00 --wrap "$cmd_s_1000"
+#done
+
+
+for file in *merged*.bam
+do
+
+sbatch --time 12:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.s120.cpm.bs3.bw --binSize 3 --normalizeUsing CPM  --extendReads --maxFragmentLength 120 --smoothLength 12 "
+sbatch --time 02:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.120.cpm.bs5.bw --binSize 5 --normalizeUsing CPM  --extendReads --maxFragmentLength 120"
+
+
+#sbatch --time 12:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.s150.cpm.bs3.bw --binSize 3 --normalizeUsing CPM  --extendReads --maxFragmentLength 150 --smoothLength 12 "
+#sbatch --time 02:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.150.cpm.bs5.bw --binSize 5 --normalizeUsing CPM  --extendReads --maxFragmentLength 150"
+
+sbatch --time 12:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.s350.cpm.bs3.bw --binSize 3 --normalizeUsing CPM  --extendReads --maxFragmentLength 350 --smoothLength 12 "
+sbatch --time 02:00:00 --mem 4G  --wrap "bamCoverage --bam $file -o ${file%%bam}.350.cpm.bs5.bw --binSize 5 --normalizeUsing CPM  --extendReads --maxFragmentLength 350"
+
+sbatch --time 12:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.s600.cpm.bs3.bw --binSize 3 --normalizeUsing CPM  --extendReads --maxFragmentLength 600 --smoothLength 12 "
+sbatch --time 02:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.600.cpm.bs5.bw --binSize 5 --normalizeUsing CPM  --extendReads --maxFragmentLength 600"
+
+#sbatch --time 12:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.s250.cpm.bs3.bw --binSize 3 --normalizeUsing CPM  --extendReads --maxFragmentLength 250 --smoothLength 12 "
+#sbatch --time 02:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.250.cpm.bs5.bw --binSize 5 --normalizeUsing CPM  --extendReads --maxFragmentLength 250"
+
+#sbatch --time 12:00:00 --mem 4G   --wrap "bamCoverage --bam $file -o ${file%%bam}.s250.cpm.bs3.bw --binSize 3 --normalizeUsing CPM  --extendReads --maxFragmentLength 250 --smoothLength 12 "
+#sbatch --time 22:00:00 --mem 8G   --wrap "bamCoverage --bam $file -o ${file%%bam}.raw.cpm.bs1.bw --binSize 1 --normalizeUsing CPM  --extendReads "
+#sbatch --time 22:00:00 --mem 8G   --wrap "bamCoverage --bam $file -o ${file%%bam}.raw.noex.bs1.bw --binSize 1 --normalizeUsing CPM   "
+
+
+done
+
+
+
+
+
+
