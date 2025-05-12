@@ -1,0 +1,21 @@
+sbatch --time 2:00:00 --ntasks 32 --mem 32G --wrap "Rscript pipe4C.R --vpFile=./example2_new/VPinfo.txt --fqFolder=./example2_new/ --outFolder=./outF2_new_full2/ --cores 32  --plot --bigwig --genomePlot "
+
+example VPinfo.txt
+
+expname primer  firstenzyme     secondenzyme    genome  vpchr   vppos   analysis        fastq
+B1_17_4C_CD     CAAAATACCCACCTAGAAGAAGAATCTGTG  DpnII   DdeI    HBA1    16      114064  all     SLX-23474.B1_17_4C_CD.r1.fq.gz
+B2_17_4C_CD     CAAAATACCCACCTAGAAGAAGAATCTGTG  DpnII   DdeI    HBA1    16      114064  all     SLX-23474.B2_17_4C_CD.r1.fq.gz
+B1_WT_4C_CD     CAAAATACCCACCTAGAAGAAGAATCTGTG  DpnII   DdeI    HBA1    16      114064  all     SLX-23474.B1_WT_4C_CD.r1.fq.gz
+B2_WT_4C_CD     CAAAATACCCACCTAGAAGAAGAATCTGTG  DpnII   DdeI    HBA1    16      114064  all     SLX-23474.B2_WT_4C_CD.r1.fq.gz
+B1_26_4C_CD     CAAAATACCCACCTAGAAGAAGAATCTGTG  DpnII   DdeI    HBA1    16      114064  all     SLX-23474.B1_26_4C_CD.r1.fq.gz
+eHBA1_14_1_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_14_1_4C.r1.fq.gz
+eHBA1_14_2_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_14_2_4C.r1.fq.gz
+eHBA1_14_3_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_14_3_4C.r1.fq.gz
+eHBA1_17_1_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_17_1_4C.r1.fq.gz
+eHBA1_17_2_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_17_2_4C.r1.fq.gz
+eHBA1_17_3_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_17_3_4C.r1.fq.gz
+eHBA1_wt_1_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_wt_1_4C.r1.fq.gz
+eHBA1_wt_2_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_wt_2_4C.r1.fq.gz
+eHBA1_wt_3_4C   CAAAATACCCACCTAGAAGAAGAATCTGTG  CviQI   NlaIII  HBA1    16      114064  all     SLX-23474.eHBA1_wt_3_4C.r1.fq.gz
+
+
