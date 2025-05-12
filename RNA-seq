@@ -1,0 +1,69 @@
+#!/bin/bash
+
+genome='~/reference_genomes/hg38_ecoliK12/hg38_selected_ecoli_K12.fa'
+whitelistbed='~/reference_genomes/hg38/hg38_eco.whitelist.sorted.bed'
+
+
+
+mkdir -p control
+for fq in *fq.gz
+do
+  sbatch --time 1:00:00 --mem 2G   --wrap "fastqc $fq  -o ./control"
+done
+
+cd control
+multiqc ./ --outdir QC
+
+
+mkdir -p trimmed
+for file in *r1.fq.gz
+do
+fq1=$file
+fq2=${fq1/r1/r2}
+ls $fq1
+ls $fq2
+echo "----"
+sbatch  --time 02:00:00 -o %j.out -e %j.err --mem 10G --wrap "cutadapt -q 20  -o trimmed/${fq1%%.fq.gz}.trimmed.fq.gz -p trimmed/${fq2%%.fq.gz}.trimmed.fq.gz $fq1 $fq2 "
+done
+
+
+cd trimmed
+for file in *.r1.trimmed.fq.gz 
+  do
+  f1=$file
+  f2=${file/r1/r2}
+sbatch --time 02:00:00 --mem 10G --wrap "seqkit split2 -1 $f1 -2 $f2 -s 4000000  -e .gz"
+done
+
+
+
+cd trimmed
+  for f1 in *.r1.trimmed.part*fq.gz 
+  do
+  f2=${f1/r1/r2}
+  sbatch --time 05:00:00 --mem 20G --wrap "bwa mem -M $genome $f1 $f2  | samtools view -Sb -F780 -q 10 -L $whitelistbed - | samtools sort -@ 8 -   > ${f1%%.fq.gz}.bam"
+done
+
+
+
+mkdir -p alignedfiles
+for file in *.r1.trimmed.part_001.bam
+do
+sample=${file%%.r1.trimmed.part_001.bam}
+echo $sample
+sbatch --time 01:00:00  --mem 40G --wrap "samtools merge alignedfiles/$sample.merged.bam ${file%%.r1.trimmed.part_001.bam}.r1.trimmed.part*bam"
+done
+
+
+cd alignedfiles
+for file in *merged.bam
+sample={file%%.merged.bam}
+sbatch --time 03:00:00  --mem 40G --wrap "samtools sort $file -o $sample.sortName.bam"
+done 
+
+
+ls -lthr *sortName.bam | awk '{print "samtools index "$9" >"$9}' | sed 's/.bam$/.bam.bai/g'
+
+
+sbatch -p epyc --mem 50G --time 03:00:00 --wrap "featureCounts -a ~/gencode.v42.annotation.gtf -o Scounts_countReadPairs.txt -p --countReadPairs -s 2 -T 12 -t exon -g gene_id *sortName.bam"
+
