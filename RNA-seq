@@ -1,10 +1,12 @@
 #!/bin/bash
 
-genome='~/reference_genomes/hg38_ecoliK12/hg38_selected_ecoli_K12.fa'
+
+genome='~/reference_genomes/hg38/hg38_selected_ecoli_K12.fa'
 whitelistbed='~/reference_genomes/hg38/hg38_eco.whitelist.sorted.bed'
 
 
-
+#QC
+#----
 mkdir -p control
 for fq in *fq.gz
 do
@@ -14,7 +16,8 @@ done
 cd control
 multiqc ./ --outdir QC
 
-
+#Read trimming for quality
+#-----------------------
 mkdir -p trimmed
 for file in *r1.fq.gz
 do
@@ -22,11 +25,12 @@ fq1=$file
 fq2=${fq1/r1/r2}
 ls $fq1
 ls $fq2
-echo "----"
 sbatch  --time 02:00:00 -o %j.out -e %j.err --mem 10G --wrap "cutadapt -q 20  -o trimmed/${fq1%%.fq.gz}.trimmed.fq.gz -p trimmed/${fq2%%.fq.gz}.trimmed.fq.gz $fq1 $fq2 "
 done
 
 
+#Splitting  fq files
+#-----------------------
 cd trimmed
 for file in *.r1.trimmed.fq.gz 
   do
@@ -37,6 +41,8 @@ done
 
 
 
+#Alignment
+#----------------
 cd trimmed
   for f1 in *.r1.trimmed.part*fq.gz 
   do
@@ -46,6 +52,8 @@ done
 
 
 
+#Merge aligned files
+#-----------------------
 mkdir -p alignedfiles
 for file in *.r1.trimmed.part_001.bam
 do
@@ -55,6 +63,8 @@ sbatch --time 01:00:00  --mem 40G --wrap "samtools merge alignedfiles/$sample.me
 done
 
 
+#sort merged bam
+#-----------------------
 cd alignedfiles
 for file in *merged.bam
 sample={file%%.merged.bam}
@@ -62,8 +72,12 @@ sbatch --time 03:00:00  --mem 40G --wrap "samtools sort $file -o $sample.sortNam
 done 
 
 
+#Generate index file
+#-----------------------
 ls -lthr *sortName.bam | awk '{print "samtools index "$9" >"$9}' | sed 's/.bam$/.bam.bai/g'
 
 
+#Read summarization for input to DESeq2
+#----------------------------------------
 sbatch -p epyc --mem 50G --time 03:00:00 --wrap "featureCounts -a ~/gencode.v42.annotation.gtf -o Scounts_countReadPairs.txt -p --countReadPairs -s 2 -T 12 -t exon -g gene_id *sortName.bam"
 
